@@ -16,7 +16,7 @@ import Network
 
 public enum NetworkPathMonitorInfo: Sendable {
     /// Current NetworkPathMonitor version.
-    public static let version = "0.0.1"
+    public static let version = "0.0.2"
 }
 
 /// A class that monitors network path changes using `NWPathMonitor`.
@@ -55,35 +55,9 @@ public actor NetworkPathMonitor {
         monitorQueue = queue
         currentPath = networkMonitor.currentPath
         self.debounceInterval = debounceInterval
-
         networkMonitor.pathUpdateHandler = { [weak self] path in
-            guard let self else { return }
-            Task {
-                await self.handlePathUpdate(path)
-            }
-        }
-    }
-
-    private func handlePathUpdate(_ path: NWPath) async {
-        guard debounceInterval > 0 else {
-            // No debounce, update immediately
-            // Cancel any potentially lingering debounce task if debounceInterval was changed dynamically (though not the case here)
-            debounceTask?.cancel()
-            debounceTask = nil
-            await updateNetworkPath(path)
-            return
-        }
-        // Debounce is active
-        debounceTask?.cancel()
-        debounceTask = Task {
-            do {
-                try await Task.sleep(nanoseconds: UInt64(self.debounceInterval * 1_000_000_000))
-                await self.updateNetworkPath(path)
-            } catch is CancellationError {
-                // Task was cancelled, do nothing
-            } catch {
-                print("Error during debounce sleep: \(error)")
-            }
+            guard let self = self else { return }
+            Task { await self.handlePathUpdate(path) }
         }
     }
 
@@ -118,23 +92,43 @@ public actor NetworkPathMonitor {
         pathUpdateContinuation = nil
     }
 
-    // Notify the path update handler
-    private func updateNetworkPath(_ path: NWPath) async {
-        let oldPath = currentPath
+    private func handlePathUpdate(_ path: NWPath) async {
         currentPath = path
+        guard debounceInterval > 0 else {
+            // No debounce, yield immediately
+            // Cancel any potentially lingering debounce task if debounceInterval was changed dynamically (though not the case here)
+            debounceTask?.cancel()
+            debounceTask = nil
+            await yieldNetworkPath(path)
+            return
+        }
+        // Debounce is active
+        debounceTask?.cancel()
+        debounceTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: UInt64(self.debounceInterval * 1_000_000_000))
+                await self.yieldNetworkPath(path)
+            } catch is CancellationError {
+                // Task was cancelled, do nothing
+            } catch {
+                print("Error during debounce sleep: \(error)")
+            }
+        }
+    }
 
+    // Yield the path update handler
+    private func yieldNetworkPath(_ path: NWPath) async {
         // Send updates via AsyncStream
         pathUpdateContinuation?.yield(path)
 
-        // The original closure callback can be kept or removed
-        await networkPathUpdater?(path)
+        // Send updates via handler
+        Task { await self.networkPathUpdater?(path) }
 
         // Post network status change notification
         NotificationCenter.default.post(
             name: Self.networkStatusDidChangeNotification,
             object: self,
             userInfo: [
-                "oldPath": oldPath,
                 "newPath": path,
             ]
         )

@@ -1,6 +1,6 @@
 # NetworkPathMonitor
 
-[![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)](https://swift.org)
+[![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20macOS%20%7C%20tvOS%20%7C%20watchOS%20%7C%20visionOS-lightgrey.svg)](#requirements)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 
@@ -138,16 +138,6 @@ init(queue: DispatchQueue = ..., debounceInterval: TimeInterval = 0)
 - `invalidate()`: Stop monitoring.
 - `pathOnChange(_:)`: Register a callback for path changes.
 - `pathUpdates`: AsyncStream of NWPath updates.
-
----
-
-## Extensions
-
-```swift
-extension NWPath {
-    var isSatisfied: Bool { status == .satisfied }
-}
-```
 
 ---
 
