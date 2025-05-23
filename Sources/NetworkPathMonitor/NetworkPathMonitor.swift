@@ -16,7 +16,7 @@ import Network
 
 public enum NetworkPathMonitorInfo: Sendable {
     /// Current NetworkPathMonitor version.
-    public static let version = "0.0.2"
+    public static let version = "0.0.3"
 }
 
 /// A class that monitors network path changes using `NWPathMonitor`.
@@ -81,9 +81,7 @@ public actor NetworkPathMonitor {
             self.pathUpdateContinuation = continuation
             // When the AsyncStream is cancelled, clean up the continuation
             continuation.onTermination = { @Sendable _ in
-                Task {
-                    await self.clearContinuation()
-                }
+                Task { await self.clearContinuation() }
             }
         }
     }
