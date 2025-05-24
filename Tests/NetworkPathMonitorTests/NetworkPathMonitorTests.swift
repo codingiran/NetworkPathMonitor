@@ -1,6 +1,7 @@
 import Network
-@testable import NetworkPathMonitor
 import XCTest
+
+@testable import NetworkPathMonitor
 
 @MainActor
 class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
@@ -104,7 +105,8 @@ class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
     // MARK: - Notification Tests
 
     func testNetworkStatusChangeNotification() async {
-        let expectation = XCTestExpectation(description: "Network status change notification received")
+        let expectation = XCTestExpectation(
+            description: "Network status change notification received")
 
         // Setup notification observer
         let observer = NotificationCenter.default.addObserver(
