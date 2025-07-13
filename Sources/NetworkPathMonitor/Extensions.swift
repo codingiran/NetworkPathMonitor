@@ -33,6 +33,21 @@ public extension Network.NWPath {
         @unknown default: return "unknown reason"
         }
     }
+
+    /// Network interfaces used by this path
+    var usedInterfaces: [NWInterface] {
+        availableInterfaces.filter { usesInterfaceType($0.type) }
+    }
+
+    /// Physical network interfaces used by this path, excluding virtual interfaces
+    var usedPhysicalInterfaces: [NWInterface] {
+        usedInterfaces.filter {
+            switch $0.type {
+            case .wifi, .cellular, .wiredEthernet: return true
+            default: return false
+            }
+        }
+    }
 }
 
 public extension Network.NWInterface.InterfaceType {

@@ -8,15 +8,15 @@
 import Foundation
 
 // Enforce minimum Swift version for all platforms and build systems.
-#if swift(<5.9)
-    #error("NetworkPathMonitor doesn't support Swift versions below 5.9")
+#if swift(<5.10)
+    #error("NetworkPathMonitor doesn't support Swift versions below 5.10")
 #endif
 
 import Network
 
 public enum NetworkPathMonitorInfo: Sendable {
     /// Current NetworkPathMonitor version.
-    public static let version = "0.0.3"
+    public static let version = "0.0.4"
 }
 
 /// A class that monitors network path changes using `NWPathMonitor`.
@@ -56,7 +56,7 @@ public actor NetworkPathMonitor {
         currentPath = networkMonitor.currentPath
         self.debounceInterval = debounceInterval
         networkMonitor.pathUpdateHandler = { [weak self] path in
-            guard let self = self else { return }
+            guard let self else { return }
             Task { await self.handlePathUpdate(path) }
         }
     }
@@ -92,16 +92,14 @@ public actor NetworkPathMonitor {
 
     private func handlePathUpdate(_ path: NWPath) async {
         currentPath = path
+        debounceTask?.cancel()
         guard debounceInterval > 0 else {
             // No debounce, yield immediately
-            // Cancel any potentially lingering debounce task if debounceInterval was changed dynamically (though not the case here)
-            debounceTask?.cancel()
             debounceTask = nil
             await yieldNetworkPath(path)
             return
         }
         // Debounce is active
-        debounceTask?.cancel()
         debounceTask = Task {
             do {
                 try await Task.sleep(nanoseconds: UInt64(self.debounceInterval * 1_000_000_000))
@@ -123,13 +121,15 @@ public actor NetworkPathMonitor {
         Task { await self.networkPathUpdater?(path) }
 
         // Post network status change notification
-        NotificationCenter.default.post(
-            name: Self.networkStatusDidChangeNotification,
-            object: self,
-            userInfo: [
-                "newPath": path,
-            ]
-        )
+        Task {
+            NotificationCenter.default.post(
+                name: Self.networkStatusDidChangeNotification,
+                object: self,
+                userInfo: [
+                    "newPath": path,
+                ]
+            )
+        }
     }
 }
 
