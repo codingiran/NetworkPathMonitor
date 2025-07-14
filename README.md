@@ -1,6 +1,6 @@
 # NetworkPathMonitor
 
-[![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
+[![Swift](https://img.shields.io/badge/Swift-5.10%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20macOS%20%7C%20tvOS%20%7C%20watchOS%20%7C%20visionOS-lightgrey.svg)](#requirements)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 
@@ -16,13 +16,14 @@ NetworkPathMonitor provides an easy and safe way to observe network connectivity
 - 🌀 AsyncStream support for async/await style observation
 - 🛎️ Callback and NotificationCenter support
 - ⏳ Debounce mechanism to avoid frequent updates
+- 🚫 Option to ignore the first path update
 - 🛠️ Simple API, easy integration
 
 ---
 
 ## Requirements
 
-- Swift 5.9 or later
+- Swift 5.10 or later
 - iOS 13.0+, macOS 10.15+, tvOS 13.0+, watchOS 6.0+, visionOS 1.0+
 
 ---
@@ -96,9 +97,8 @@ let observer = NotificationCenter.default.addObserver(
     object: nil,
     queue: .main
 ) { notification in
-    if let oldPath = notification.userInfo?["oldPath"] as? NWPath,
-       let newPath = notification.userInfo?["newPath"] as? NWPath {
-        print("Network changed from \(oldPath.status) to \(newPath.status)")
+    if let newPath = notification.userInfo?["newPath"] as? NWPath {
+        print("Network status changed to: \(newPath.status)")
     }
 }
 ```
@@ -115,16 +115,41 @@ let monitor = NetworkPathMonitor(debounceInterval: 1.0) // 1 second debounce
 
 ---
 
+## Ignore First Path Update
+
+Sometimes you may want to ignore the initial network path update that occurs when monitoring starts, especially during app launch. You can use the `ignoreFirstPathUpdate` parameter:
+
+```swift
+// Ignore the first path update when monitoring starts
+let monitor = NetworkPathMonitor(ignoreFirstPathUpdate: true)
+await monitor.fire() // First update will be ignored
+
+// Useful for avoiding immediate notifications during app startup
+let monitor = NetworkPathMonitor(
+    debounceInterval: 0.5,
+    ignoreFirstPathUpdate: true
+)
+```
+
+This is particularly useful when:
+
+- You want to avoid showing network status alerts immediately when the app starts
+- You only care about network changes after the initial connection is established
+- You're implementing features that should only respond to actual network transitions
+
+---
+
 ## API
 
 ### Initialization
 
 ```swift
-init(queue: DispatchQueue = ..., debounceInterval: TimeInterval = 0)
+init(queue: DispatchQueue = ..., debounceInterval: TimeInterval = 0, ignoreFirstPathUpdate: Bool = false)
 ```
 
 - `queue`: The dispatch queue for the underlying NWPathMonitor.
 - `debounceInterval`: Debounce interval in seconds. Default is 0 (no debounce).
+- `ignoreFirstPathUpdate`: Whether to ignore the first path update. Default is false.
 
 ### Properties
 
