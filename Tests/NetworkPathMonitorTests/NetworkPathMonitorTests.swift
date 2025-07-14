@@ -29,7 +29,7 @@ class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
         XCTAssertNotNil(currentPath)
 
         // Test with custom debounce interval
-        let debounceMonitor = NetworkPathMonitor(debounceInterval: 1.0)
+        let debounceMonitor = NetworkPathMonitor(debounceInterval: .seconds(1.0))
         let debounceIsActive = await debounceMonitor.isActive
         XCTAssertFalse(debounceIsActive)
     }
@@ -129,7 +129,7 @@ class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
     // MARK: - Debounce Tests
 
     func testDebounceInterval() async throws {
-        let debounceMonitor = NetworkPathMonitor(debounceInterval: 0.5)
+        let debounceMonitor = NetworkPathMonitor(debounceInterval: .seconds(0.5))
         let expectation = XCTestExpectation(description: "Debounced path update")
         var updateCount = 0
 
@@ -247,7 +247,7 @@ class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
 
     func testIgnoreFirstPathUpdateWithDebounce() async {
         let debounceIgnoreMonitor = NetworkPathMonitor(
-            debounceInterval: 0.5,
+            debounceInterval: .seconds(0.5),
             ignoreFirstPathUpdate: true
         )
         let expectation = XCTestExpectation(description: "First debounced update should be ignored")

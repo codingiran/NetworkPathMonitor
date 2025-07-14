@@ -16,7 +16,7 @@ import Network
 
 public enum NetworkPathMonitorInfo: Sendable {
     /// Current NetworkPathMonitor version.
-    public static let version = "0.0.5"
+    public static let version = "0.0.6"
 }
 
 /// A class that monitors network path changes using `NWPathMonitor`.
@@ -27,7 +27,7 @@ public actor NetworkPathMonitor {
     private let monitorQueue: DispatchQueue
 
     /// Debounce interval in seconds.
-    private let debounceInterval: TimeInterval
+    private let debounceInterval: Interval
 
     /// Ignore first path update.
     private let ignoreFirstPathUpdate: Bool
@@ -55,13 +55,13 @@ public actor NetworkPathMonitor {
 
     /// Initializes a new instance of `NetworkPathMonitor`.
     /// - Parameter queue: The queue on which the network path monitor runs. Default is a serial queue with a unique label.
-    /// - Parameter debounceInterval: Debounce interval in seconds. If set to 0, no debounce will be applied. Default is 0 seconds.
+    /// - Parameter debounceInterval: Debounce interval. If set to 0, no debounce will be applied. Default is 0 seconds.
     /// - Parameter ignoreFirstPathUpdate: Ignore first path update. Default is false.
     public init(queue: DispatchQueue = .init(label: "com.networkPathMonitor.\(UUID())"),
-                debounceInterval: TimeInterval = 0,
+                debounceInterval: Interval = .seconds(0),
                 ignoreFirstPathUpdate: Bool = false)
     {
-        precondition(debounceInterval >= 0, "debounceInterval must be greater than or equal to 0")
+        precondition(debounceInterval.nanoseconds >= 0, "debounceInterval must be greater than or equal to 0")
         monitorQueue = queue
         currentPath = networkMonitor.currentPath
         self.debounceInterval = debounceInterval
@@ -111,7 +111,7 @@ public actor NetworkPathMonitor {
         }
 
         debounceTask?.cancel()
-        guard debounceInterval > 0 else {
+        guard debounceInterval.nanoseconds > 0 else {
             // No debounce, yield immediately
             debounceTask = nil
             await yieldNetworkPath(path)
@@ -120,7 +120,7 @@ public actor NetworkPathMonitor {
         // Debounce is active
         debounceTask = Task {
             do {
-                try await Task.sleep(nanoseconds: UInt64(self.debounceInterval * 1_000_000_000))
+                try await Task.sleep(nanoseconds: UInt64(self.debounceInterval.nanoseconds))
                 await self.yieldNetworkPath(path)
             } catch is CancellationError {
                 // Task was cancelled, do nothing
@@ -182,5 +182,32 @@ public extension NetworkPathMonitor {
     /// Network path status change handler.
     func pathOnChange(_ handler: @escaping PathUpdateHandler) {
         networkPathUpdater = handler
+    }
+}
+
+// MARK: - Duration Convenience
+
+public extension NetworkPathMonitor {
+    enum Interval: Sendable {
+        case nanoseconds(_: Int)
+        case microseconds(_: Int)
+        case milliseconds(_: Int)
+        case seconds(_: Double)
+        case minutes(_: Int)
+
+        var nanoseconds: Int {
+            switch self {
+            case let .nanoseconds(value):
+                return value
+            case let .microseconds(value):
+                return value * 1000
+            case let .milliseconds(value):
+                return value * 1_000_000
+            case let .seconds(value):
+                return Int(value * 1_000_000_000)
+            case let .minutes(value):
+                return value * 60 * 1_000_000_000
+            }
+        }
     }
 }
