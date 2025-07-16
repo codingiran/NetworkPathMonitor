@@ -16,7 +16,7 @@ import Network
 
 public enum NetworkPathMonitorInfo: Sendable {
     /// Current NetworkPathMonitor version.
-    public static let version = "0.0.6"
+    public static let version = "0.0.7"
 }
 
 /// A class that monitors network path changes using `NWPathMonitor`.
@@ -176,7 +176,7 @@ public extension NetworkPathMonitor {
 
     /// A Boolean value indicating whether the network path is satisfied.
     var isPathSatisfied: Bool {
-        currentPath.isSatisfied
+        currentPath.status == .satisfied
     }
 
     /// Network path status change handler.
