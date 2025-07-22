@@ -7,7 +7,12 @@
 
 import Foundation
 import Network
-import NetworkKit
+
+#if compiler(>=6.0)
+    public import NetworkKit
+#else
+    @_exported import NetworkKit
+#endif
 
 public struct NetworkPath: Sendable {
     /// A status indicating whether a path can be used by connections.
@@ -53,19 +58,46 @@ public struct NetworkPath: Sendable {
             return interface
         }
     }
+}
 
-    public func usesInterfaceType(_ type: Interface.InterfaceType) -> Bool {
+public extension NetworkPath {
+    /// Network interfaces used by this path
+    var usedInterfaces: [NetworkKit.Interface] {
+        availableInterfaces.filter { usesInterfaceType($0.type) }
+    }
+
+    /// Physical network interfaces used by this path, excluding virtual interfaces
+    var usedPhysicalInterfaces: [NetworkKit.Interface] {
+        usedInterfaces.filter {
+            switch $0.type {
+            case .wifi, .cellular, .wiredEthernet: return true
+            default: return false
+            }
+        }
+    }
+
+    /// The primary used physical network interface, which is the first in the list of used interfaces
+    var primaryUsedPhysicalInterface: NetworkKit.Interface? { usedInterfaces.first }
+
+    /// Checks if the path uses an NWInterface with the specified type
+    func usesInterfaceType(_ type: Interface.InterfaceType) -> Bool {
         rawNWPath.usesInterfaceType(type.nwInterfaceType)
     }
 }
 
 public extension NetworkPath {
     enum Status: Sendable {
-        case unsatisfied
+        /// The path has a usable route upon which to send and receive data
         case satisfied
+
+        /// The path does not have a usable route. This may be due to a network interface being down, or due to system policy.
+        case unsatisfied
+
+        /// The path does not currently have a usable route, but a connection attempt will trigger network attachment.
         case requiresConnection
 
-        init(nwStatus: NWPath.Status) {
+        /// Initializes a Status from a NWPath.Status
+        fileprivate init(nwStatus: NWPath.Status) {
             switch nwStatus {
             case .satisfied:
                 self = .satisfied
@@ -80,27 +112,51 @@ public extension NetworkPath {
     }
 
     @available(iOS 14.2, macCatalyst 14.2, macOS 11.0, tvOS 14.2, visionOS 1.0, watchOS 7.1, *)
-    enum UnsatisfiedReason: Sendable {
-        case cellularDenied
-        case localNetworkDenied
+    enum UnsatisfiedReason: Sendable, CustomStringConvertible {
+        /// No reason is given
         case notAvailable
-        case vpnInactive
+
+        /// The user has disabled cellular
+        case cellularDenied
+
+        /// The user has disabled Wi-Fi
         case wifiDenied
 
-        init(nwUnsatisfiedReason: NWPath.UnsatisfiedReason) {
+        /// The user has disabled local network access
+        case localNetworkDenied
+
+        /// A required VPN is not active
+        @available(macOS 14.0, iOS 17.0, macCatalyst 17.0, watchOS 10.0, tvOS 17.0, visionOS 1.0, *)
+        case vpnInactive
+
+        /// Initializes an UnsatisfiedReason from a NWPath.UnsatisfiedReason
+        fileprivate init(nwUnsatisfiedReason: NWPath.UnsatisfiedReason) {
             switch nwUnsatisfiedReason {
-            case .cellularDenied:
-                self = .cellularDenied
-            case .localNetworkDenied:
-                self = .localNetworkDenied
             case .notAvailable:
                 self = .notAvailable
-            case .vpnInactive:
-                self = .vpnInactive
+            case .cellularDenied:
+                self = .cellularDenied
             case .wifiDenied:
                 self = .wifiDenied
+            case .localNetworkDenied:
+                self = .localNetworkDenied
+            case .vpnInactive:
+                if #available(macOS 14.0, iOS 17.0, macCatalyst 17.0, watchOS 10.0, tvOS 17.0, visionOS 1.0, *) {
+                    self = .vpnInactive
+                }
             @unknown default:
                 fatalError("Unknown NWPath.UnsatisfiedReason value")
+            }
+            self = .notAvailable
+        }
+
+        public var description: String {
+            switch self {
+            case .cellularDenied: return "Cellular access denied"
+            case .localNetworkDenied: return "Local network access denied"
+            case .notAvailable: return "Network not available"
+            case .vpnInactive: return "VPN is inactive"
+            case .wifiDenied: return "WiFi access denied"
             }
         }
     }

@@ -21,7 +21,7 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/codingiran/NetworkKit.git", .upToNextMajor(from: "0.2.4")),
+        .package(url: "https://github.com/codingiran/NetworkKit.git", .upToNextMajor(from: "0.2.5")),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
