@@ -20,11 +20,17 @@ let package = Package(
             targets: ["NetworkPathMonitor"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/codingiran/NetworkKit.git", .upToNextMajor(from: "0.2.4")),
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "NetworkPathMonitor",
+            dependencies: [
+                "NetworkKit",
+            ],
             linkerSettings: [
                 .linkedFramework("Network"),
             ]
