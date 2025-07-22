@@ -1,6 +1,7 @@
 import Network
 import XCTest
 
+import NetworkKit
 @testable import NetworkPathMonitor
 
 @MainActor
@@ -65,7 +66,7 @@ class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
     func testPathUpdatesStream() async {
         await monitor.fire()
 
-        var updates: [NWPath] = []
+        var updates: [NetworkPath] = []
         let expectation = XCTestExpectation(description: "Receive path updates")
 
         // Create a task to collect updates
@@ -90,6 +91,7 @@ class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
 
     // MARK: - Path Change Handler Tests
 
+    @MainActor
     func testPathChangeHandler() async {
         let expectation = XCTestExpectation(description: "Path change handler called")
 
@@ -156,116 +158,22 @@ class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(satisfied, currentPathSatisfied)
     }
 
-    // MARK: - IgnoreFirstPathUpdate Tests
+    // MARK: - NetworkPath Tests
 
-    func testIgnoreFirstPathUpdateEnabled() async {
-        let ignoreFirstMonitor = NetworkPathMonitor(ignoreFirstPathUpdate: true)
-        let expectation = XCTestExpectation(description: "First update should be ignored")
-        expectation.isInverted = true // We expect this NOT to be fulfilled
-
-        var updateCount = 0
-        await ignoreFirstMonitor.pathOnChange { @MainActor _ in
-            updateCount += 1
-            expectation.fulfill()
-        }
-
-        await ignoreFirstMonitor.fire()
-
-        // Wait briefly to ensure no updates are received
-        await fulfillment(of: [expectation], timeout: 1.0)
-
-        XCTAssertEqual(updateCount, 0, "First update should be ignored")
-
-        await ignoreFirstMonitor.invalidate()
-    }
-
-    func testIgnoreFirstPathUpdateDisabled() async {
-        let normalMonitor = NetworkPathMonitor(ignoreFirstPathUpdate: false)
-        let expectation = XCTestExpectation(description: "First update should be received")
-
-        var updateCount = 0
-        await normalMonitor.pathOnChange { @MainActor _ in
-            updateCount += 1
-            expectation.fulfill()
-        }
-
-        await normalMonitor.fire()
-
-        await fulfillment(of: [expectation], timeout: 5.0)
-
-        XCTAssertEqual(updateCount, 1, "First update should be received")
-
-        await normalMonitor.invalidate()
-    }
-
-    func testIgnoreFirstPathUpdateWithAsyncStream() async {
-        let ignoreFirstMonitor = NetworkPathMonitor(ignoreFirstPathUpdate: true)
-        await ignoreFirstMonitor.fire()
-
-        var updates: [NWPath] = []
-        let expectation = XCTestExpectation(description: "First update should be ignored in stream")
-        expectation.isInverted = true
-
-        let task = Task { @MainActor in
-            for await update in await ignoreFirstMonitor.pathUpdates {
-                updates.append(update)
-                expectation.fulfill()
-                break // Only check for first update
+    func testNetworkTestInitialization() {
+        let networkMonitor: NWPathMonitor = .init()
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            Task { @MainActor in
+                measureNetworkTestInitialization(path)
             }
         }
-
-        // Wait briefly to ensure no updates are received
-        await fulfillment(of: [expectation], timeout: 1.0)
-
-        task.cancel()
-        await ignoreFirstMonitor.invalidate()
-
-        XCTAssertTrue(updates.isEmpty, "No updates should be received in stream when ignoring first update")
+        networkMonitor.start(queue: .init(label: "testNetworkTestInitialization"))
     }
 
-    func testIgnoreFirstPathUpdateWithNotification() async {
-        let ignoreFirstMonitor = NetworkPathMonitor(ignoreFirstPathUpdate: true)
-        let expectation = XCTestExpectation(description: "First notification should be ignored")
-        expectation.isInverted = true
-
-        let observer = NotificationCenter.default.addObserver(
-            forName: NetworkPathMonitor.networkStatusDidChangeNotification,
-            object: ignoreFirstMonitor,
-            queue: nil
-        ) { _ in
-            expectation.fulfill()
+    func measureNetworkTestInitialization(_ path: NWPath) {
+        measure {
+            let _ = NetworkPath(nwPath: path)
         }
-
-        await ignoreFirstMonitor.fire()
-
-        // Wait briefly to ensure no notifications are received
-        await fulfillment(of: [expectation], timeout: 1.0)
-
-        NotificationCenter.default.removeObserver(observer)
-        await ignoreFirstMonitor.invalidate()
-    }
-
-    func testIgnoreFirstPathUpdateWithDebounce() async {
-        let debounceIgnoreMonitor = NetworkPathMonitor(
-            debounceInterval: .seconds(0.5),
-            ignoreFirstPathUpdate: true
-        )
-        let expectation = XCTestExpectation(description: "First debounced update should be ignored")
-        expectation.isInverted = true
-
-        var updateCount = 0
-        await debounceIgnoreMonitor.pathOnChange { @MainActor _ in
-            updateCount += 1
-            expectation.fulfill()
-        }
-
-        await debounceIgnoreMonitor.fire()
-
-        // Wait longer than debounce interval to ensure no updates
-        await fulfillment(of: [expectation], timeout: 1.5)
-
-        XCTAssertEqual(updateCount, 0, "First debounced update should be ignored")
-
-        await debounceIgnoreMonitor.invalidate()
     }
 }

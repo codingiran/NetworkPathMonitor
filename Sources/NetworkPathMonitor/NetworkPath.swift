@@ -36,13 +36,19 @@ public struct NetworkPath: Sendable {
     /// A Boolean indicating whether the path uses an interface that is considered expensive, such as Cellular or a Personal Hotspot.
     public let isExpensive: Bool
 
+    /// A Boolean indicating whether the path is satisfied.
+    public var isSatisfied: Bool { status == .satisfied }
+
     @available(iOS 14.2, macCatalyst 14.2, macOS 11.0, tvOS 14.2, visionOS 1.0, watchOS 7.1, *)
     public var unsatisfiedReason: UnsatisfiedReason? { .init(nwUnsatisfiedReason: rawNWPath.unsatisfiedReason) }
 
     /// The raw NWPath instance that this NetworkPath wraps.
     public let rawNWPath: NWPath
 
-    public init(nwPath: NWPath) {
+    /// An enum indicating the sequence of update.
+    public var sequence: Sequence
+
+    public init(nwPath: NWPath, sequence: Sequence = .initial) {
         rawNWPath = nwPath
         status = Status(nwStatus: nwPath.status)
         supportsIPv4 = nwPath.supportsIPv4
@@ -50,10 +56,9 @@ public struct NetworkPath: Sendable {
         supportsDNS = nwPath.supportsDNS
         isConstrained = nwPath.isConstrained
         isExpensive = nwPath.isExpensive
-
-        let allInterfaces = NetworkKit.Interface.allInterfaces()
+        self.sequence = sequence
         availableInterfaces = nwPath.availableInterfaces.compactMap { nwInterface in
-            guard var interface = allInterfaces.first(where: { $0.name == nwInterface.name }) else { return nil }
+            guard var interface = NetworkKit.Interface.interfaces(matching: { $0 == nwInterface.name }).first else { return nil }
             interface.associateNWInterface(nwInterface)
             return interface
         }
@@ -86,7 +91,7 @@ public extension NetworkPath {
 }
 
 public extension NetworkPath {
-    enum Status: Sendable {
+    enum Status: Sendable, Equatable {
         /// The path has a usable route upon which to send and receive data
         case satisfied
 
@@ -157,6 +162,69 @@ public extension NetworkPath {
             case .notAvailable: return "Network not available"
             case .vpnInactive: return "VPN is inactive"
             case .wifiDenied: return "WiFi access denied"
+            }
+        }
+    }
+
+    indirect enum Sequence: Sendable, Equatable {
+        /// The initial path when the `NWPathMonitor` is created
+        case initial
+
+        /// An update triggered by the `pathUpdateHandler` closure of `NWPathMonitor`
+        case update(_ index: UInt, _ previousPath: NetworkPath?)
+
+        var previousPath: NetworkPath? {
+            get {
+                switch self {
+                case .initial:
+                    return nil
+                case let .update(_, previousPath):
+                    return previousPath
+                }
+            }
+            set {
+                switch self {
+                case let .update(index, _):
+                    self = .update(index, newValue)
+                default:
+                    return
+                }
+            }
+        }
+
+        var isInitial: Bool {
+            switch self {
+            case .initial:
+                return true
+            case .update:
+                return false
+            }
+        }
+
+        var isFirstUpdate: Bool {
+            switch self {
+            case .initial:
+                return false
+            case let .update(index, _):
+                return index == 0
+            }
+        }
+
+        var index: UInt? {
+            switch self {
+            case .initial:
+                return nil
+            case let .update(index, _):
+                return index
+            }
+        }
+
+        var nextIndex: UInt {
+            switch self {
+            case .initial:
+                return 0
+            case let .update(index, _):
+                return index + 1
             }
         }
     }

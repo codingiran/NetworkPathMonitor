@@ -16,7 +16,7 @@ import Network
 
 public enum NetworkPathMonitorInfo: Sendable {
     /// Current NetworkPathMonitor version.
-    public static let version = "0.0.7"
+    public static let version = "0.2.0"
 }
 
 /// A class that monitors network path changes using `NWPathMonitor`.
@@ -28,9 +28,6 @@ public actor NetworkPathMonitor {
 
     /// Debounce interval in seconds.
     private let debounceInterval: Interval
-
-    /// Ignore first path update.
-    private let ignoreFirstPathUpdate: Bool
 
     /// The network path update handler.
     private var networkPathUpdater: PathUpdateHandler?
@@ -45,10 +42,7 @@ public actor NetworkPathMonitor {
     private var debounceTask: Task<Void, Never>?
 
     /// Current network path.
-    public private(set) var currentPath: NWPath
-
-    /// Flag to track if this is the first path update.
-    private var isFirstUpdate: Bool = true
+    public private(set) var currentPath: NetworkPath
 
     /// Network path status change notification.
     public static let networkStatusDidChangeNotification = Notification.Name("NetworkPathMonitor.NetworkPathStatusDidChange")
@@ -56,16 +50,13 @@ public actor NetworkPathMonitor {
     /// Initializes a new instance of `NetworkPathMonitor`.
     /// - Parameter queue: The queue on which the network path monitor runs. Default is a serial queue with a unique label.
     /// - Parameter debounceInterval: Debounce interval. If set to 0, no debounce will be applied. Default is 0 seconds.
-    /// - Parameter ignoreFirstPathUpdate: Ignore first path update. Default is false.
     public init(queue: DispatchQueue = .init(label: "com.networkPathMonitor.\(UUID())"),
-                debounceInterval: Interval = .seconds(0),
-                ignoreFirstPathUpdate: Bool = false)
+                debounceInterval: Interval = .seconds(0))
     {
         precondition(debounceInterval.nanoseconds >= 0, "debounceInterval must be greater than or equal to 0")
         monitorQueue = queue
-        currentPath = networkMonitor.currentPath
+        currentPath = NetworkPath(nwPath: networkMonitor.currentPath)
         self.debounceInterval = debounceInterval
-        self.ignoreFirstPathUpdate = ignoreFirstPathUpdate
         networkMonitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
             Task { await self.handlePathUpdate(path) }
@@ -84,10 +75,10 @@ public actor NetworkPathMonitor {
     }
 
     /// Updates the current network path and notifies the handler.
-    private var pathUpdateContinuation: AsyncStream<NWPath>.Continuation?
+    private var pathUpdateContinuation: AsyncStream<NetworkPath>.Continuation?
 
     /// An asynchronous stream of network path updates.
-    public var pathUpdates: AsyncStream<NWPath> {
+    public var pathUpdates: AsyncStream<NetworkPath> {
         AsyncStream { continuation in
             self.pathUpdateContinuation = continuation
             // When the AsyncStream is cancelled, clean up the continuation
@@ -102,26 +93,22 @@ public actor NetworkPathMonitor {
     }
 
     private func handlePathUpdate(_ path: NWPath) async {
-        currentPath = path
-
-        // Check if we should ignore the first path update
-        if isFirstUpdate, ignoreFirstPathUpdate {
-            isFirstUpdate = false
-            return
-        }
+        currentPath.sequence.previousPath = nil // clear previous path avoid infinite reference
+        let networkPath = NetworkPath(nwPath: path, sequence: .update(currentPath.sequence.nextIndex, currentPath))
+        currentPath = networkPath
 
         debounceTask?.cancel()
         guard debounceInterval.nanoseconds > 0 else {
             // No debounce, yield immediately
             debounceTask = nil
-            await yieldNetworkPath(path)
+            await yieldNetworkPath(networkPath)
             return
         }
         // Debounce is active
         debounceTask = Task {
             do {
                 try await Task.sleep(nanoseconds: UInt64(self.debounceInterval.nanoseconds))
-                await self.yieldNetworkPath(path)
+                await self.yieldNetworkPath(networkPath)
             } catch is CancellationError {
                 // Task was cancelled, do nothing
             } catch {
@@ -131,10 +118,7 @@ public actor NetworkPathMonitor {
     }
 
     // Yield the path update handler
-    private func yieldNetworkPath(_ path: NWPath) async {
-        // Mark first update as completed when actually notifying
-        isFirstUpdate = false
-
+    private func yieldNetworkPath(_ path: NetworkPath) async {
         // Send updates via AsyncStream
         pathUpdateContinuation?.yield(path)
 
@@ -158,7 +142,7 @@ public actor NetworkPathMonitor {
 
 public extension NetworkPathMonitor {
     /// A type alias for the network path update handler.
-    typealias PathUpdateHandler = @Sendable (Network.NWPath) async -> Void
+    typealias PathUpdateHandler = @Sendable (NetworkPath) async -> Void
 
     /// Starts monitoring the network path.
     func fire() {
