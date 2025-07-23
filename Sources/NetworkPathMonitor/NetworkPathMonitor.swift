@@ -93,8 +93,7 @@ public actor NetworkPathMonitor {
     }
 
     private func handlePathUpdate(_ path: NWPath) async {
-        currentPath.sequence.previousPath = nil // clear previous path avoid infinite reference
-        let networkPath = NetworkPath(nwPath: path, sequence: .update(currentPath.sequence.nextIndex, currentPath))
+        let networkPath = NetworkPath(nwPath: path, sequence: .updating(currentPath))
         currentPath = networkPath
 
         debounceTask?.cancel()

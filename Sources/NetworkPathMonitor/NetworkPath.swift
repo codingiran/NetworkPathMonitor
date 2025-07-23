@@ -165,14 +165,27 @@ public extension NetworkPath {
             }
         }
     }
+}
 
-    indirect enum Sequence: Sendable, Equatable {
+// MARK: - Sequence
+
+public extension NetworkPath {
+    indirect enum Sequence: Sendable, Equatable, CustomDebugStringConvertible {
         /// The initial path when the `NWPathMonitor` is created
         case initial
 
         /// An update triggered by the `pathUpdateHandler` closure of `NWPathMonitor`
         case update(_ index: UInt, _ previousPath: NetworkPath?)
 
+        /// Convenience initializer for creating a `Sequence.update`
+        static func updating(_ previousPath: NetworkPath) -> Sequence {
+            var path = previousPath
+            // clear previous path avoid infinite reference
+            path.sequence.previousPath = nil
+            return .update(previousPath.sequence.nextIndex, path)
+        }
+
+        /// The previous path in the sequence, if it exists
         var previousPath: NetworkPath? {
             get {
                 switch self {
@@ -192,6 +205,7 @@ public extension NetworkPath {
             }
         }
 
+        /// Indicates whether this is the initial path in the sequence
         var isInitial: Bool {
             switch self {
             case .initial:
@@ -201,6 +215,7 @@ public extension NetworkPath {
             }
         }
 
+        /// Indicates whether this is the first update in the sequence
         var isFirstUpdate: Bool {
             switch self {
             case .initial:
@@ -210,6 +225,7 @@ public extension NetworkPath {
             }
         }
 
+        /// The current index of this sequence update, if it exists
         var index: UInt? {
             switch self {
             case .initial:
@@ -219,19 +235,28 @@ public extension NetworkPath {
             }
         }
 
+        /// The next index in the sequence, which is one greater than the current index
         var nextIndex: UInt {
+            index.map { $0 + 1 } ?? 0
+        }
+
+        public var debugDescription: String {
             switch self {
             case .initial:
-                return 0
+                return "initial"
             case let .update(index, _):
-                return index + 1
+                return "update(index: \(index))"
             }
         }
     }
 }
 
-extension NetworkPath: Equatable, CustomDebugStringConvertible {
+extension NetworkPath: Equatable, CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        "NetworkPath(status: \(status), availableInterfaces: \(availableInterfaces.map(\.name))"
+    }
+
     public var debugDescription: String {
-        "NetworkPath(status: \(status), availableInterfaces: \(availableInterfaces.map(\.name)), supportsIPv4: \(supportsIPv4), supportsIPv6: \(supportsIPv6), supportsDNS: \(supportsDNS), isConstrained: \(isConstrained), isExpensive: \(isExpensive))"
+        "NetworkPath(status: \(status), availableInterfaces: \(availableInterfaces.map(\.name)), supportsIPv4: \(supportsIPv4), supportsIPv6: \(supportsIPv6), supportsDNS: \(supportsDNS), isConstrained: \(isConstrained), isExpensive: \(isExpensive)), sequence: \(sequence.debugDescription), isSatisfied: \(isSatisfied))"
     }
 }
