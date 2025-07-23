@@ -231,6 +231,8 @@ public extension NetworkPath {
     }
 }
 
+// MARK: - UpdateReason
+
 public extension NetworkPath {
     enum UpdateReason: Sendable, Equatable {
         /// The path is the initial path when the `NWPathMonitor` is started
@@ -273,6 +275,25 @@ public extension NetworkPath {
             return .physicalChange
         }
         return .uncertain
+    }
+}
+
+// MARK: - Diffrence
+
+private extension NetworkPath {
+    private struct Difference: Sendable {
+        let isInitial: Bool
+        let pyhicalChange: Bool
+        let stausChange: Bool
+        let rawNWPathChange: Bool
+    }
+
+    private func diff(from previousPath: NetworkPath?) -> Difference {
+        let isInitial = previousPath == nil || sequence.index == 0
+        let pyhicalChange = previousPath?.usedPhysicalInterfaces != usedPhysicalInterfaces
+        let stausChange = previousPath?.status != status
+        let rawNWPathChange = previousPath?.rawNWPath != rawNWPath
+        return .init(isInitial: isInitial, pyhicalChange: pyhicalChange, stausChange: stausChange, rawNWPathChange: rawNWPathChange)
     }
 }
 
