@@ -46,7 +46,8 @@ public struct NetworkPath: Sendable {
     public let rawNWPath: NWPath
 
     /// An enum indicating the sequence of update.
-    public var sequence: Sequence
+    /// It only grow when the path update triggered.
+    public private(set) var sequence: Sequence
 
     public init(nwPath: NWPath, sequence: Sequence = .initial) {
         rawNWPath = nwPath
@@ -56,14 +57,16 @@ public struct NetworkPath: Sendable {
         supportsDNS = nwPath.supportsDNS
         isConstrained = nwPath.isConstrained
         isExpensive = nwPath.isExpensive
-        self.sequence = sequence
         availableInterfaces = nwPath.availableInterfaces.compactMap { nwInterface in
             guard var interface = NetworkKit.Interface.interfaces(matching: { $0 == nwInterface.name }).first else { return nil }
             interface.associateNWInterface(nwInterface)
             return interface
         }
+        self.sequence = sequence
     }
 }
+
+// MARK: - Interface
 
 public extension NetworkPath {
     /// Network interfaces used by this path
@@ -90,6 +93,8 @@ public extension NetworkPath {
     }
 }
 
+// MARK: - Status
+
 public extension NetworkPath {
     enum Status: Sendable, Equatable {
         /// The path has a usable route upon which to send and receive data
@@ -115,8 +120,12 @@ public extension NetworkPath {
             }
         }
     }
+}
 
-    @available(iOS 14.2, macCatalyst 14.2, macOS 11.0, tvOS 14.2, visionOS 1.0, watchOS 7.1, *)
+// MARK: - UnsatisfiedReason
+
+@available(iOS 14.2, macCatalyst 14.2, macOS 11.0, tvOS 14.2, visionOS 1.0, watchOS 7.1, *)
+public extension NetworkPath {
     enum UnsatisfiedReason: Sendable, CustomStringConvertible {
         /// No reason is given
         case notAvailable
@@ -170,86 +179,104 @@ public extension NetworkPath {
 // MARK: - Sequence
 
 public extension NetworkPath {
-    indirect enum Sequence: Sendable, Equatable, CustomDebugStringConvertible {
-        /// The initial path when the `NWPathMonitor` is created
-        case initial
-
+    /// An enum representing the sequence of updates for a NetworkPath.
+    /// Using an enum for indirect recursion: https://forums.swift.org/t/using-indirect-modifier-for-struct-properties/37600/14
+    indirect enum Sequence: Sendable, Equatable, CustomStringConvertible, CustomDebugStringConvertible {
         /// An update triggered by the `pathUpdateHandler` closure of `NWPathMonitor`
-        case update(_ index: UInt, _ previousPath: NetworkPath?)
+        case index(_ index: Int, _ previousPath: NetworkPath?)
 
-        /// Convenience initializer for creating a `Sequence.update`
-        static func updating(_ previousPath: NetworkPath) -> Sequence {
-            var path = previousPath
-            // clear previous path avoid infinite reference
-            path.sequence.previousPath = nil
-            return .update(previousPath.sequence.nextIndex, path)
-        }
+        /// Convenience initializer for the initial sequence
+        public static let initial = Sequence.index(0, nil)
 
         /// The previous path in the sequence, if it exists
         var previousPath: NetworkPath? {
-            get {
-                switch self {
-                case .initial:
-                    return nil
-                case let .update(_, previousPath):
-                    return previousPath
-                }
-            }
-            set {
-                switch self {
-                case let .update(index, _):
-                    self = .update(index, newValue)
-                default:
-                    return
-                }
+            switch self {
+            case let .index(_, previousPath): return previousPath
             }
         }
 
         /// Indicates whether this is the initial path in the sequence
-        var isInitial: Bool {
-            switch self {
-            case .initial:
-                return true
-            case .update:
-                return false
-            }
-        }
+        var isInitial: Bool { index == 0 }
 
         /// Indicates whether this is the first update in the sequence
-        var isFirstUpdate: Bool {
-            switch self {
-            case .initial:
-                return false
-            case let .update(index, _):
-                return index == 0
-            }
-        }
+        var isFirstUpdate: Bool { index == 1 }
 
         /// The current index of this sequence update, if it exists
-        var index: UInt? {
+        var index: Int {
             switch self {
-            case .initial:
-                return nil
-            case let .update(index, _):
-                return index
+            case let .index(value, _): return value
             }
         }
 
         /// The next index in the sequence, which is one greater than the current index
-        var nextIndex: UInt {
-            index.map { $0 + 1 } ?? 0
-        }
+        var nextIndex: Int { index + 1 }
+
+        public var description: String { debugDescription }
 
         public var debugDescription: String {
             switch self {
-            case .initial:
-                return "initial"
-            case let .update(index, _):
-                return "update(index: \(index))"
+            case let .index(index, _): return "index(\(index))"
             }
         }
     }
+
+    /// Updates the sequence
+    mutating func updateSequence(_ sequence: Sequence) {
+        self.sequence = sequence
+    }
+
+    /// Clears the previous path
+    mutating func clearPreviousPath() {
+        sequence = .index(sequence.index, nil)
+    }
 }
+
+public extension NetworkPath {
+    enum UpdateReason: Sendable, Equatable {
+        /// The path is the initial path when the `NWPathMonitor` is started
+        case initial
+        /// The path has changed due to a physical interface change
+        case physicalChange
+        /// The reason for the update is uncertain
+        case uncertain
+
+        /// Indicates whether this is the initial path.
+        var isInitial: Bool {
+            switch self {
+            case .initial:
+                return true
+            default:
+                return false
+            }
+        }
+
+        /// Indicates whether this is a physical interface change.
+        var isPhysicalChange: Bool {
+            switch self {
+            case .physicalChange:
+                return true
+            default:
+                return false
+            }
+        }
+    }
+
+    /// An enum indicating the reason of update.
+    var updateReason: UpdateReason {
+        if sequence.isInitial {
+            // The initial path is created when the `NWPathMonitor` is started
+            return .initial
+        }
+        let previousUsedPhysicalInterfaces = sequence.previousPath?.usedPhysicalInterfaces
+        guard previousUsedPhysicalInterfaces == usedPhysicalInterfaces else {
+            // If the used physical interfaces have changed, it indicates a physical interface change
+            return .physicalChange
+        }
+        return .uncertain
+    }
+}
+
+// MARK: - Equatable & CustomStringConvertible
 
 extension NetworkPath: Equatable, CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String {
@@ -257,6 +284,6 @@ extension NetworkPath: Equatable, CustomStringConvertible, CustomDebugStringConv
     }
 
     public var debugDescription: String {
-        "NetworkPath(status: \(status), availableInterfaces: \(availableInterfaces.map(\.name)), supportsIPv4: \(supportsIPv4), supportsIPv6: \(supportsIPv6), supportsDNS: \(supportsDNS), isConstrained: \(isConstrained), isExpensive: \(isExpensive)), sequence: \(sequence.debugDescription), isSatisfied: \(isSatisfied))"
+        "NetworkPath(status: \(status), availableInterfaces: \(availableInterfaces.map(\.name)), supportsIPv4: \(supportsIPv4), supportsIPv6: \(supportsIPv6), supportsDNS: \(supportsDNS), isConstrained: \(isConstrained), isExpensive: \(isExpensive)), isSatisfied: \(isSatisfied)), sequence: \(sequence.debugDescription), previousSequence: \(sequence.previousPath?.sequence.debugDescription ?? "null")"
     }
 }

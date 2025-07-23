@@ -93,21 +93,24 @@ public actor NetworkPathMonitor {
     }
 
     private func handlePathUpdate(_ path: NWPath) async {
-        let networkPath = NetworkPath(nwPath: path, sequence: .updating(currentPath))
-        currentPath = networkPath
+        var previousPath = currentPath
+        // Before yielding, keep the previous sequence
+        currentPath = NetworkPath(nwPath: path, sequence: previousPath.sequence)
+        // clear previous path avoid infinite reference
+        previousPath.clearPreviousPath()
 
         debounceTask?.cancel()
         guard debounceInterval.nanoseconds > 0 else {
             // No debounce, yield immediately
             debounceTask = nil
-            await yieldNetworkPath(networkPath)
+            await yieldNetworkPath(previousPath: previousPath)
             return
         }
         // Debounce is active
         debounceTask = Task {
             do {
                 try await Task.sleep(nanoseconds: UInt64(self.debounceInterval.nanoseconds))
-                await self.yieldNetworkPath(networkPath)
+                await self.yieldNetworkPath(previousPath: previousPath)
             } catch is CancellationError {
                 // Task was cancelled, do nothing
             } catch {
@@ -117,12 +120,15 @@ public actor NetworkPathMonitor {
     }
 
     // Yield the path update handler
-    private func yieldNetworkPath(_ path: NetworkPath) async {
+    private func yieldNetworkPath(previousPath: NetworkPath) async {
+        // Update sequence
+        currentPath.updateSequence(.index(previousPath.sequence.nextIndex, previousPath))
+
         // Send updates via AsyncStream
-        pathUpdateContinuation?.yield(path)
+        pathUpdateContinuation?.yield(currentPath)
 
         // Send updates via handler
-        Task { await self.networkPathUpdater?(path) }
+        Task { await self.networkPathUpdater?(currentPath) }
 
         // Post network status change notification
         Task {
@@ -130,7 +136,7 @@ public actor NetworkPathMonitor {
                 name: Self.networkStatusDidChangeNotification,
                 object: self,
                 userInfo: [
-                    "newPath": path,
+                    "newPath": currentPath,
                 ]
             )
         }
