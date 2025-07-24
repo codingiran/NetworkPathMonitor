@@ -202,27 +202,27 @@ public extension NetworkPath {
         public static let initial = Sequence.index(0, nil)
 
         /// The previous path in the sequence, if it exists
-        var previousPath: NetworkPath? {
+        public var previousPath: NetworkPath? {
             switch self {
             case let .index(_, previousPath): return previousPath
             }
         }
 
         /// Indicates whether this is the initial path in the sequence
-        var isInitial: Bool { index == 0 }
+        public var isInitial: Bool { index == 0 }
 
         /// Indicates whether this is the first update in the sequence
-        var isFirstUpdate: Bool { index == 1 }
+        public var isFirstUpdate: Bool { index == 1 }
 
         /// The current index of this sequence update, if it exists
-        var index: Int {
+        public var index: Int {
             switch self {
             case let .index(value, _): return value
             }
         }
 
         /// The next index in the sequence, which is one greater than the current index
-        var nextIndex: Int { index + 1 }
+        public var nextIndex: Int { index + 1 }
 
         public var description: String { debugDescription }
 
