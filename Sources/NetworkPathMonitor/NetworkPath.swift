@@ -297,13 +297,13 @@ extension NetworkPath: Equatable, CustomStringConvertible, CustomDebugStringConv
     public var debugDescription: String {
         "NetworkPath(status: \(status), interfaces: \(interfacesDescription), supportsIPv4: \(supportsIPv4), supportsIPv6: \(supportsIPv6), supportsDNS: \(supportsDNS), isConstrained: \(isConstrained), isExpensive: \(isExpensive), isFirstUpdate: \(isFirstUpdate), isPhysicalChange: \(isPhysicalChange), sequence: \(sequence.debugDescription), previous: (\(sequence.previousPath?.interfacesDescription ?? "null"), \(sequence.previousPath?.sequence.debugDescription ?? "null")))"
     }
-    
+
     private var interfacesDescription: String {
         "(available: [\(availableInterfaces.nameDescription)], used: [\(usedInterfaces.nameDescription)], usedPhysical: [\(usedPhysicalInterfaces.nameDescription)])"
     }
 }
 
-private extension Array where Element == NetworkKit.Interface {
+public extension Array where Element == NetworkKit.Interface {
     var names: [String] { map(\.name) }
 
     var nameDescription: String { names.joined(separator: ", ") }
