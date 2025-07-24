@@ -1,13 +1,13 @@
 {
-  "originHash" : "7a33eea1438244c3bfffb3b9a6a62ed89f04cdd05dd48bee3e8983dd62e28e1a",
+  "originHash" : "0cb8c0d91b25616f7f6fce42979e9ff7153a64cea1f411606ba678b85fa50541",
   "pins" : [
     {
       "identity" : "networkkit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/codingiran/NetworkKit.git",
       "state" : {
-        "revision" : "80c50316b9fe338007b822d856e07da4c3f05aa7",
-        "version" : "0.2.7"
+        "revision" : "d0e31a6839943468e9de4057447a622ce27dfafa",
+        "version" : "0.2.8"
       }
     }
   ],
