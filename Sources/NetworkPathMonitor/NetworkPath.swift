@@ -96,7 +96,7 @@ public extension NetworkPath {
 // MARK: - Status
 
 public extension NetworkPath {
-    enum Status: Sendable, Equatable {
+    enum Status: Sendable, Equatable, CustomStringConvertible, CustomDebugStringConvertible {
         /// The path has a usable route upon which to send and receive data
         case satisfied
 
@@ -119,6 +119,19 @@ public extension NetworkPath {
                 fatalError("Unknown NWPath.Status value")
             }
         }
+
+        public var description: String {
+            switch self {
+            case .satisfied:
+                return "satisfied"
+            case .unsatisfied:
+                return "unsatisfied"
+            case .requiresConnection:
+                return "requiresConnection"
+            }
+        }
+
+        public var debugDescription: String { description }
     }
 }
 
@@ -240,7 +253,7 @@ public extension NetworkPath {
 // MARK: - UpdateReason
 
 public extension NetworkPath {
-    enum UpdateReason: Sendable, Equatable {
+    enum UpdateReason: Sendable, Equatable, CustomStringConvertible, CustomDebugStringConvertible {
         /// The path is the initial path when the `NWPathMonitor` is started
         case initial
         /// The path has changed due to a physical interface change
@@ -267,6 +280,16 @@ public extension NetworkPath {
                 return false
             }
         }
+
+        public var description: String {
+            switch self {
+            case .initial: return "initial"
+            case .physicalChange: return "physicalChange"
+            case .uncertain: return "uncertain"
+            }
+        }
+
+        public var debugDescription: String { description }
     }
 
     /// An enum indicating the reason of update.
