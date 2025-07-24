@@ -47,6 +47,9 @@ public actor NetworkPathMonitor {
     /// Network path status change notification.
     public static let networkStatusDidChangeNotification = Notification.Name("NetworkPathMonitor.NetworkPathStatusDidChange")
 
+    /// Record the previous yield path
+    private var previousYieldPath: NetworkPath
+
     /// Initializes a new instance of `NetworkPathMonitor`.
     /// - Parameter queue: The queue on which the network path monitor runs. Default is a serial queue with a unique label.
     /// - Parameter debounceInterval: Debounce interval. If set to 0, no debounce will be applied. Default is 0 seconds.
@@ -56,6 +59,7 @@ public actor NetworkPathMonitor {
         precondition(debounceInterval.nanoseconds >= 0, "debounceInterval must be greater than or equal to 0")
         monitorQueue = queue
         currentPath = NetworkPath(nwPath: networkMonitor.currentPath)
+        previousYieldPath = currentPath
         self.debounceInterval = debounceInterval
         networkMonitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
@@ -93,24 +97,21 @@ public actor NetworkPathMonitor {
     }
 
     private func handlePathUpdate(_ path: NWPath) async {
-        var previousPath = currentPath
         // Before yielding, keep the previous sequence
-        currentPath = NetworkPath(nwPath: path, sequence: previousPath.sequence)
-        // clear previous path avoid infinite reference
-        previousPath.clearPreviousPath()
+        currentPath = NetworkPath(nwPath: path, sequence: previousYieldPath.sequence)
 
         debounceTask?.cancel()
         guard debounceInterval.nanoseconds > 0 else {
             // No debounce, yield immediately
             debounceTask = nil
-            await yieldNetworkPath(previousPath: previousPath)
+            await yieldNetworkPath()
             return
         }
         // Debounce is active
         debounceTask = Task {
             do {
                 try await Task.sleep(nanoseconds: UInt64(self.debounceInterval.nanoseconds))
-                await self.yieldNetworkPath(previousPath: previousPath)
+                await self.yieldNetworkPath()
             } catch is CancellationError {
                 // Task was cancelled, do nothing
             } catch {
@@ -120,9 +121,17 @@ public actor NetworkPathMonitor {
     }
 
     // Yield the path update handler
-    private func yieldNetworkPath(previousPath: NetworkPath) async {
+    private func yieldNetworkPath() async {
+        defer {
+            // Record the previous yield path
+            previousYieldPath = currentPath
+        }
+
+        // clear previous path of previous yield path to avoid infinite reference
+        previousYieldPath.clearPreviousPath()
+        
         // Update sequence
-        currentPath.updateSequence(.index(previousPath.sequence.nextIndex, previousPath))
+        currentPath.updateSequence(.index(previousYieldPath.sequence.nextIndex, previousYieldPath))
 
         // Send updates via AsyncStream
         pathUpdateContinuation?.yield(currentPath)

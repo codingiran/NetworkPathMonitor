@@ -12,6 +12,7 @@ class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
     override func setUp() async throws {
         try await super.setUp()
         customQueue = DispatchQueue(label: "com.test.networkmonitor")
+//        monitor = NetworkPathMonitor(queue: customQueue, debounceInterval: .seconds(1.5))
         monitor = NetworkPathMonitor(queue: customQueue)
     }
 
@@ -102,6 +103,20 @@ class NetworkPathMonitorTests: XCTestCase, @unchecked Sendable {
         await monitor.fire()
 
         await fulfillment(of: [expectation], timeout: 5.0)
+    }
+    
+    @MainActor
+    func testPathChangeHandlerPrint() async {
+        let expectation = XCTestExpectation(description: "Path change handler called")
+
+        await monitor.pathOnChange { path in
+            print(path.debugDescription)
+//            expectation.fulfill()
+        }
+
+        await monitor.fire()
+
+        await fulfillment(of: [expectation], timeout: .infinity)
     }
 
     // MARK: - Notification Tests

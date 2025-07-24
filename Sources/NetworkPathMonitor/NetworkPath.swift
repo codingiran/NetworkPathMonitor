@@ -220,6 +220,12 @@ public extension NetworkPath {
         }
     }
 
+    /// Indicates whether this is the initial path in the sequence.
+    var isInitial: Bool { sequence.isInitial }
+
+    /// Indicates whether this is the first update in the sequence.
+    var isFirstUpdate: Bool { sequence.isFirstUpdate }
+
     /// Updates the sequence
     mutating func updateSequence(_ sequence: Sequence) {
         self.sequence = sequence
@@ -271,40 +277,34 @@ public extension NetworkPath {
         }
         let previousUsedPhysicalInterfaces = sequence.previousPath?.usedPhysicalInterfaces
         guard previousUsedPhysicalInterfaces == usedPhysicalInterfaces else {
-            // If the used physical interfaces have changed, it indicates a physical interface change
+            // It indicates a physical interface change
             return .physicalChange
         }
         return .uncertain
     }
-}
 
-// MARK: - Diffrence
-
-private extension NetworkPath {
-    private struct Difference: Sendable {
-        let isInitial: Bool
-        let pyhicalChange: Bool
-        let stausChange: Bool
-        let rawNWPathChange: Bool
-    }
-
-    private func diff(from previousPath: NetworkPath?) -> Difference {
-        let isInitial = previousPath == nil || sequence.index == 0
-        let pyhicalChange = previousPath?.usedPhysicalInterfaces != usedPhysicalInterfaces
-        let stausChange = previousPath?.status != status
-        let rawNWPathChange = previousPath?.rawNWPath != rawNWPath
-        return .init(isInitial: isInitial, pyhicalChange: pyhicalChange, stausChange: stausChange, rawNWPathChange: rawNWPathChange)
-    }
+    /// Indicates whether this is a physical interface change.
+    var isPhysicalChange: Bool { updateReason.isPhysicalChange }
 }
 
 // MARK: - Equatable & CustomStringConvertible
 
 extension NetworkPath: Equatable, CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String {
-        "NetworkPath(status: \(status), availableInterfaces: \(availableInterfaces.map(\.name))"
+        "NetworkPath(status: \(status), interfaces: \(interfacesDescription))"
     }
 
     public var debugDescription: String {
-        "NetworkPath(status: \(status), availableInterfaces: \(availableInterfaces.map(\.name)), supportsIPv4: \(supportsIPv4), supportsIPv6: \(supportsIPv6), supportsDNS: \(supportsDNS), isConstrained: \(isConstrained), isExpensive: \(isExpensive)), isSatisfied: \(isSatisfied)), sequence: \(sequence.debugDescription), previousSequence: \(sequence.previousPath?.sequence.debugDescription ?? "null")"
+        "NetworkPath(status: \(status), interfaces: \(interfacesDescription), supportsIPv4: \(supportsIPv4), supportsIPv6: \(supportsIPv6), supportsDNS: \(supportsDNS), isConstrained: \(isConstrained), isExpensive: \(isExpensive), isFirstUpdate: \(isFirstUpdate), isPhysicalChange: \(isPhysicalChange), sequence: \(sequence.debugDescription), previous: (\(sequence.previousPath?.interfacesDescription ?? "null"), \(sequence.previousPath?.sequence.debugDescription ?? "null")))"
     }
+    
+    private var interfacesDescription: String {
+        "(available: [\(availableInterfaces.nameDescription)], used: [\(usedInterfaces.nameDescription)], usedPhysical: [\(usedPhysicalInterfaces.nameDescription)])"
+    }
+}
+
+private extension Array where Element == NetworkKit.Interface {
+    var names: [String] { map(\.name) }
+
+    var nameDescription: String { names.joined(separator: ", ") }
 }
