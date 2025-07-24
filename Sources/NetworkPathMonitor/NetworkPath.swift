@@ -298,7 +298,7 @@ extension NetworkPath: Equatable, CustomStringConvertible, CustomDebugStringConv
         "NetworkPath(status: \(status), interfaces: \(interfacesDescription), supportsIPv4: \(supportsIPv4), supportsIPv6: \(supportsIPv6), supportsDNS: \(supportsDNS), isConstrained: \(isConstrained), isExpensive: \(isExpensive), isFirstUpdate: \(isFirstUpdate), isPhysicalChange: \(isPhysicalChange), sequence: \(sequence.debugDescription), previous: (\(sequence.previousPath?.interfacesDescription ?? "null"), \(sequence.previousPath?.sequence.debugDescription ?? "null")))"
     }
 
-    private var interfacesDescription: String {
+    public var interfacesDescription: String {
         "(available: [\(availableInterfaces.nameDescription)], used: [\(usedInterfaces.nameDescription)], usedPhysical: [\(usedPhysicalInterfaces.nameDescription)])"
     }
 }
