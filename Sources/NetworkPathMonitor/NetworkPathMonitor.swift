@@ -16,7 +16,7 @@ import Network
 
 public enum NetworkPathMonitorInfo: Sendable {
     /// Current NetworkPathMonitor version.
-    public static let version = "0.2.0"
+    public static let version = "0.1.0"
 }
 
 /// A class that monitors network path changes using `NWPathMonitor`.
@@ -129,7 +129,7 @@ public actor NetworkPathMonitor {
 
         // clear previous path of previous yield path to avoid infinite reference
         previousYieldPath.clearPreviousPath()
-        
+
         // Update sequence
         currentPath.updateSequence(.index(previousYieldPath.sequence.nextIndex, previousYieldPath))
 
