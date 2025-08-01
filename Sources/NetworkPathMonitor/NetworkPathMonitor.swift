@@ -21,7 +21,7 @@ import Network
 
 public enum NetworkPathMonitorInfo: Sendable {
     /// Current NetworkPathMonitor version.
-    public static let version = "0.1.4"
+    public static let version = "0.1.5"
 }
 
 /// A class that monitors network path changes using `NWPathMonitor`.
