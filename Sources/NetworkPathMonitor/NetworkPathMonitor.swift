@@ -158,7 +158,7 @@ public extension NetworkPathMonitor {
 
     /// A Boolean value indicating whether the network path is satisfied.
     var isPathSatisfied: Bool {
-        currentPath.status == .satisfied
+        currentPath.isSatisfied
     }
 
     /// Network path status change handler.
