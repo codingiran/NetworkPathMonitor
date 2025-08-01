@@ -35,7 +35,7 @@ NetworkPathMonitor provides an easy and safe way to observe network connectivity
 Add the following to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/codingiran/NetworkPathMonitor.git", from: "0.0.1")
+.package(url: "https://github.com/codingiran/NetworkPathMonitor.git", from: "0.1.5")
 ```
 
 Or use Xcode:  
