@@ -16,7 +16,7 @@ NetworkPathMonitor provides an easy and safe way to observe network connectivity
 - 🌀 AsyncStream support for async/await style observation
 - 🛎️ Callback and NotificationCenter support
 - ⏳ Debounce mechanism to avoid frequent updates
-- 🚫 Option to ignore the first path update
+- 📊 Rich NetworkPath with sequence tracking and update reasons
 - 🛠️ Simple API, easy integration
 
 ---
@@ -71,6 +71,8 @@ await monitor.fire()
 Task {
     for await path in await monitor.pathUpdates {
         print("Network status changed: \(path.status)")
+        print("Is first update: \(path.isFirstUpdate)")
+        print("Update reason: \(path.updateReason)")
     }
 }
 ```
@@ -83,6 +85,8 @@ import NetworkPathMonitor
 let monitor = NetworkPathMonitor()
 await monitor.pathOnChange { path in
     print("Network changed: \(path.status)")
+    print("Is first update: \(path.isFirstUpdate)")
+    print("Update reason: \(path.updateReason)")
 }
 await monitor.fire()
 ```
@@ -97,8 +101,10 @@ let observer = NotificationCenter.default.addObserver(
     object: nil,
     queue: .main
 ) { notification in
-    if let newPath = notification.userInfo?["newPath"] as? NWPath {
+    if let newPath = notification.userInfo?["newPath"] as? NetworkPath {
         print("Network status changed to: \(newPath.status)")
+        print("Is first update: \(newPath.isFirstUpdate)")
+        print("Update reason: \(newPath.updateReason)")
     }
 }
 ```
@@ -110,32 +116,76 @@ let observer = NotificationCenter.default.addObserver(
 You can set a debounce interval to avoid frequent updates:
 
 ```swift
-let monitor = NetworkPathMonitor(debounceInterval: 1.0) // 1 second debounce
+let monitor = NetworkPathMonitor(debounceInterval: .seconds(1.0)) // 1 second debounce
 ```
 
 ---
 
-## Ignore First Path Update
+## Interval Types
 
-Sometimes you may want to ignore the initial network path update that occurs when monitoring starts, especially during app launch. You can use the `ignoreFirstPathUpdate` parameter:
+NetworkPathMonitor uses a convenient `Interval` enum for specifying debounce intervals:
 
 ```swift
-// Ignore the first path update when monitoring starts
-let monitor = NetworkPathMonitor(ignoreFirstPathUpdate: true)
-await monitor.fire() // First update will be ignored
-
-// Useful for avoiding immediate notifications during app startup
-let monitor = NetworkPathMonitor(
-    debounceInterval: 0.5,
-    ignoreFirstPathUpdate: true
-)
+// Different interval types
+let monitor1 = NetworkPathMonitor(debounceInterval: .nanoseconds(500_000_000)) // 0.5 seconds
+let monitor2 = NetworkPathMonitor(debounceInterval: .milliseconds(500)) // 0.5 seconds
+let monitor3 = NetworkPathMonitor(debounceInterval: .seconds(0.5)) // 0.5 seconds
+let monitor4 = NetworkPathMonitor(debounceInterval: .minutes(1)) // 1 minute
+let monitor5 = NetworkPathMonitor(debounceInterval: .hours(1)) // 1 hour
 ```
 
-This is particularly useful when:
+---
 
-- You want to avoid showing network status alerts immediately when the app starts
-- You only care about network changes after the initial connection is established
-- You're implementing features that should only respond to actual network transitions
+## NetworkPath Sequence Tracking
+
+NetworkPathMonitor now provides rich sequence tracking capabilities through the `NetworkPath` type. Each path update includes sequence information and update reasons:
+
+### Sequence Properties
+
+```swift
+let monitor = NetworkPathMonitor()
+await monitor.fire()
+
+Task {
+    for await path in await monitor.pathUpdates {
+        // Check if this is the first update after initial connection
+        if path.isFirstUpdate {
+            print("First network update received")
+        }
+        
+        // Access the previous path for comparison
+        if let previousPath = path.sequence.previousPath {
+            print("Previous status: \(previousPath.status)")
+            print("Previous interfaces: \(previousPath.usedInterfaces.names)")
+        }
+        
+        // Get update reason
+        switch path.updateReason {
+        case .initial:
+            print("Initial path when monitor started")
+        case .physicalChange:
+            print("Physical network interface changed")
+        case .uncertain:
+            print("Network status changed for uncertain reason")
+        }
+    }
+}
+```
+
+### Update Reasons
+
+- **`.initial`**: The path is the initial path when the monitor is started
+- **`.physicalChange`**: The path has changed due to a physical interface change (e.g., switching from WiFi to Cellular)
+- **`.uncertain`**: The reason for the update is uncertain (e.g., network configuration changes)
+
+### Sequence Index
+
+Each path update has a sequence index that increments with each update:
+
+```swift
+print("Sequence index: \(path.sequence.index)")
+print("Is initial path: \(path.sequence.isInitial)")
+```
 
 ---
 
@@ -144,17 +194,16 @@ This is particularly useful when:
 ### Initialization
 
 ```swift
-init(queue: DispatchQueue = ..., debounceInterval: TimeInterval = 0, ignoreFirstPathUpdate: Bool = false)
+init(queue: DispatchQueue = ..., debounceInterval: Interval = .zero)
 ```
 
 - `queue`: The dispatch queue for the underlying NWPathMonitor.
-- `debounceInterval`: Debounce interval in seconds. Default is 0 (no debounce).
-- `ignoreFirstPathUpdate`: Whether to ignore the first path update. Default is false.
+- `debounceInterval`: Debounce interval using convenient Interval enum. Default is .zero (no debounce).
 
 ### Properties
 
 - `isActive`: Whether monitoring is active.
-- `currentPath`: The latest `NWPath`.
+- `currentPath`: The latest `NetworkPath`.
 - `isPathSatisfied`: Whether the current path is satisfied (connected).
 
 ### Methods
@@ -162,7 +211,7 @@ init(queue: DispatchQueue = ..., debounceInterval: TimeInterval = 0, ignoreFirst
 - `fire()`: Start monitoring.
 - `invalidate()`: Stop monitoring.
 - `pathOnChange(_:)`: Register a callback for path changes.
-- `pathUpdates`: AsyncStream of NWPath updates.
+- `pathUpdates`: AsyncStream of NetworkPath updates.
 
 ---
 
