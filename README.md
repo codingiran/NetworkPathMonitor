@@ -8,7 +8,7 @@ A modern, type-safe, actor-based network path monitoring utility for Apple platf
 NetworkPathMonitor provides an easy and safe way to observe network connectivity changes using Swift Concurrency, AsyncStream, callbacks, and notifications.
 
 > **Need real network connectivity testing?**
-> Check out [NetworkConnectivityKit](https://github.com/codingiran/NetworkConnectivityKit) - performs actual HTTP requests to detect true internet connectivity, including captive portals.
+Check out [NetworkConnectivityKit](https://github.com/codingiran/NetworkConnectivityKit) - performs actual HTTP requests to detect true internet connectivity, including captive portals.
 
 ---
 
