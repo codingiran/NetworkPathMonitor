@@ -37,7 +37,19 @@ public struct NetworkPath: Sendable {
     public let isExpensive: Bool
 
     /// A Boolean indicating whether the path is satisfied.
-    public var isSatisfied: Bool { status == .satisfied }
+    public var isSatisfied: Bool {
+        guard status == .satisfied else { return false }
+        guard !availableInterfaces.isEmpty else { return false }
+        if availableInterfaces.count == 1,
+           let onlyInterface = availableInterfaces.first,
+           onlyInterface.type.isFakeEthernet
+        {
+            // NWPathMonitor may report satisfied status with only fake ethernet interfaces (e.g., fethxx)
+            // when no physical network interfaces are available, but network is actually unreachable
+            return false
+        }
+        return true
+    }
 
     @available(iOS 14.2, macCatalyst 14.2, macOS 11.0, tvOS 14.2, visionOS 1.0, watchOS 7.1, *)
     public var unsatisfiedReason: UnsatisfiedReason? { .init(nwUnsatisfiedReason: rawNWPath.unsatisfiedReason) }

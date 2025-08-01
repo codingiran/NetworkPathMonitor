@@ -1,5 +1,5 @@
 {
-  "originHash" : "0e3144ae56a80270cb85b7bd073b97313a1de49d75720ee3df0f73defcc8a779",
+  "originHash" : "5cbc9d391db6ab6b011f7f868cfbcfea17009523d74e6af7b89242bf6c49bab6",
   "pins" : [
     {
       "identity" : "asynctimer",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/codingiran/NetworkKit.git",
       "state" : {
-        "revision" : "d0e31a6839943468e9de4057447a622ce27dfafa",
-        "version" : "0.2.8"
+        "revision" : "232db77ee1d0e1244beb0f86ecb1b38bb97473e5",
+        "version" : "0.2.9"
       }
     }
   ],

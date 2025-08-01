@@ -21,7 +21,7 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/codingiran/NetworkKit.git", .upToNextMajor(from: "0.2.8")),
+        .package(url: "https://github.com/codingiran/NetworkKit.git", .upToNextMajor(from: "0.2.9")),
         .package(url: "https://github.com/codingiran/AsyncTimer.git", .upToNextMajor(from: "0.0.6")),
     ],
     targets: [
