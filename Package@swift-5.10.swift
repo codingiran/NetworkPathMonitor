@@ -22,7 +22,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/codingiran/NetworkKit.git", .upToNextMajor(from: "0.2.9")),
-        .package(url: "https://github.com/codingiran/AsyncTimer.git", .upToNextMajor(from: "0.0.6")),
+        .package(url: "https://github.com/codingiran/AsyncTimer.git", .upToNextMajor(from: "0.0.7")),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
